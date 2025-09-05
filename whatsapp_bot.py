@@ -1,12 +1,15 @@
 import os
 import logging
-from flask import Blueprint, request
+from flask import Flask, Blueprint, request
 from twilio.twiml.messaging_response import MessagingResponse
 from excel_handler import adicionar_pedido  # ✅ só esta importação é necessária
 
 # Configurar logging
 logging.basicConfig(level=logging.DEBUG)
 
+# ----------------------------
+# Blueprint do Twilio
+# ----------------------------
 twilio_bp = Blueprint('twilio', __name__)
 
 # Guardar estado de cada utilizador
@@ -36,6 +39,9 @@ def menu_produtos():
         "Digite 0️⃣ para voltar ao menu principal."
     )
 
+# ----------------------------
+# Rota do webhook
+# ----------------------------
 @twilio_bp.route("/webhook", methods=["POST"])
 def webhook():
     incoming_msg = request.values.get("Body", "").strip()
@@ -86,7 +92,7 @@ def webhook():
     elif state["step"] == "produto":
         logging.debug("Entrou no passo PRODUTO")
         state["produto"] = incoming_msg
-        msg.body("🔢 Informe a *quantidade*:")
+        msg.body("🔢 Informe a *quantidade*: ")
         state["step"] = "quantidade"
 
     elif state["step"] == "quantidade":
@@ -165,3 +171,12 @@ def webhook():
     logging.debug(f"Novo estado do usuário {from_number}: {state}")
 
     return str(resp)
+
+# ----------------------------
+# App principal Flask
+# ----------------------------
+app = Flask(__name__)
+app.register_blueprint(twilio_bp)
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
