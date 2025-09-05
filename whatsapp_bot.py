@@ -2,13 +2,12 @@ import os
 import logging
 from flask import Blueprint, request
 from twilio.twiml.messaging_response import MessagingResponse
-from excel_handler import ExcelHandler
+from excel_handler import adicionar_pedido  # ✅ só esta importação é necessária
 
 # Configurar logging
 logging.basicConfig(level=logging.DEBUG)
 
 twilio_bp = Blueprint('twilio', __name__)
-excel = ExcelHandler("Papuxel.xlsx")
 
 # Guardar estado de cada utilizador
 user_state = {}
@@ -110,17 +109,18 @@ def webhook():
         state["observacoes"] = incoming_msg
 
         try:
-            excel.registrar_pedido(
+            adicionar_pedido(
                 state["nome"],
                 state["contacto"],
                 state["produto"],
                 state["quantidade"],
                 state["data_entrega"],
-                obs=state["observacoes"]
+                obs=state["observacoes"],
+                status="Pendente"
             )
-            logging.debug("Pedido registrado com sucesso no Excel")
+            logging.debug("Pedido registrado com sucesso no Google Sheets")
         except Exception as e:
-            logging.error(f"Erro ao gravar no Excel: {e}")
+            logging.error(f"Erro ao gravar no Google Sheets: {e}")
             msg.body(f"❌ Erro ao registrar o pedido: {e}")
             user_state[from_number] = state
             return str(resp)
