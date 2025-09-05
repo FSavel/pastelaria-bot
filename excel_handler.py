@@ -1,57 +1,43 @@
-import openpyxl
-from openpyxl import Workbook
 import os
-from datetime import datetime
+import json
+import gspread
+from google.oauth2.service_account import Credentials
 
-class ExcelHandler:
-    def __init__(self, filename):
-        self.filename = filename
-        self._criar_arquivo_se_nao_existir()
+# Carregar as credenciais do ambiente (Render -> Environment Variable)
+google_credentials = os.environ.get("GOOGLE_CREDENTIALS")
 
-    def _criar_arquivo_se_nao_existir(self):
-        """Cria o ficheiro Excel com aba 'Pedidos' e cabeçalhos, se não existir."""
-        if not os.path.exists(self.filename):
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Pedidos"
-            ws.append([
-                "Data do Pedido",
-                "Nome",
-                "Contacto",
-                "Produto",
-                "Quantidade",
-                "Data de Entrega",
-                "Observações"
-            ])
-            wb.save(self.filename)
+if not google_credentials:
+    raise Exception("⚠️ Erro: Variável de ambiente GOOGLE_CREDENTIALS não encontrada.")
 
-    def registrar_pedido(self, nome, contacto, produto, quantidade, data_entrega, obs=""):
-        """Registra um novo pedido no Excel, criando aba 'Pedidos' se necessário."""
-        wb = openpyxl.load_workbook(self.filename)
+# Converter string JSON em dicionário
+creds_dict = json.loads(google_credentials)
 
-        # Criar aba "Pedidos" se não existir
-        if "Pedidos" not in wb.sheetnames:
-            ws = wb.create_sheet("Pedidos")
-            ws.append([
-                "Data do Pedido",
-                "Nome",
-                "Contacto",
-                "Produto",
-                "Quantidade",
-                "Data de Entrega",
-                "Observações"
-            ])
-        else:
-            ws = wb["Pedidos"]
+# Definir escopos necessários
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-        ws.append([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Data do registo
-            nome,
-            contacto,
-            produto,
-            quantidade,
-            data_entrega,
-            obs
-        ])
+# Criar credenciais do Google a partir do JSON
+creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 
-        wb.save(self.filename)
+# Autenticar no Google Sheets
+client = gspread.authorize(creds)
+
+# ID da planilha (extraído do link que partilhaste)
+SHEET_ID = "1oLn7e47NWpeBwTX71fJCQ8NAPPCEgLWaCBxVCKzxc-U"
+
+# Abrir planilha
+sheet = client.open_by_key(SHEET_ID).sheet1
+
+# Funções úteis
+def adicionar_pedido(data_pedido, cliente, contacto, produto, quantidade, data_entrega, observacoes, status):
+    """Adiciona um novo pedido na planilha."""
+    nova_linha = [data_pedido, cliente, contacto, produto, quantidade, data_entrega, observacoes, status]
+    sheet.append_row(nova_linha)
+
+def listar_pedidos():
+    """Lê todos os pedidos da planilha."""
+    return sheet.get_all_records()
+
+def atualizar_status(linha, novo_status):
+    """Atualiza o status de pagamento de um pedido."""
+    # Exemplo: coluna 8 = "Status de Pagamento"
+    sheet.update_cell(linha, 8, novo_status)
